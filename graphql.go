@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/SHOWROOM-inc/graphql/internal/jsonutil"
+	"github.com/vektah/gqlparser/v2/gqlerror"
 	"golang.org/x/net/context/ctxhttp"
 )
 
@@ -76,7 +78,7 @@ func (c *Client) do(ctx context.Context, op operationType, v interface{}, variab
 	}
 	var out struct {
 		Data   *json.RawMessage
-		Errors errors
+		Errors Errors
 		//Extensions interface{} // Unused.
 	}
 	err = json.NewDecoder(resp.Body).Decode(&out)
@@ -97,21 +99,14 @@ func (c *Client) do(ctx context.Context, op operationType, v interface{}, variab
 	return nil
 }
 
-// errors represents the "errors" array in a response from a GraphQL server.
-// If returned via error interface, the slice is expected to contain at least 1 element.
-//
-// Specification: https://facebook.github.io/graphql/#sec-Errors.
-type errors []struct {
-	Message   string
-	Locations []struct {
-		Line   int
-		Column int
-	}
-}
+type Errors []*gqlerror.Error
 
-// Error implements error interface.
-func (e errors) Error() string {
-	return e[0].Message
+func (e Errors) Error() string {
+	messages := make([]string, len(e))
+	for i, v := range e {
+		messages[i] = v.Error()
+	}
+	return strings.Join(messages, " | ")
 }
 
 type operationType uint8
